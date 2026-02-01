@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEIR Model - COVID-19 Prediction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: 40px;
+        }
+
+        section {
+            margin-bottom: 40px;
+        }
+
+        section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .form-group label {
+            flex: 1;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .stats-panel {
+            margin-top: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .stat-card h3 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .stat-card p {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .chart-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            position: relative;
+            height: 400px;
+        }
+
+        canvas {
+            max-height: 100%;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                padding: 20px;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .form-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🦠 SEIR Model Dashboard</h1>
+            <p>COVID-19 Epidemiological Prediction (Standalone)</p>
+        </header>
+
+        <main>
+            <section class="control-panel">
+                <h2>Data Upload</h2>
+                
+                <!-- File upload removed. Default dataset will be loaded silently. -->
+
+                <div class="form-group">
+                    <label for="columnName">Confirmed Cases Column:</label>
+                    <input type="text" id="columnName" value="Confirmed" placeholder="e.g., Confirmed, Cases, Total">
+                </div>
+
+                <button id="loadDefaultBtn" class="btn-primary">Load Default Data</button>
+                <p id="dataStatus" style="margin-top: 10px; color: #667eea;"></p>
+            </section>
+
+            <section class="control-panel">
+                <h2>Model Configuration</h2>
+                
+                <div class="form-group">
+                    <label for="e0">Initial Exposed (E0):</label>
+                    <input type="number" id="e0" value="100" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="i0">Initial Infected (I0):</label>
+                    <input type="number" id="i0" value="50" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="r0">Initial Recovered (R0):</label>
+                    <input type="number" id="r0" value="0" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="days">Prediction Days:</label>
+                    <input type="number" id="days" value="100" min="1" max="365">
+                </div>
+
+                <button id="predictBtn" class="btn-primary">Generate Predictions</button>
+            </section>
+
+            <section class="stats-panel">
+                <h2>Model Information</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Population</h3>
+                        <p id="stat-population">1.38B</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Beta (β)</h3>
+                        <p id="stat-beta">0.4000</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Gamma (γ)</h3>
+                        <p id="stat-gamma">0.1000</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Sigma (σ)</h3>
+                        <p id="stat-sigma">0.2000</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="chart-container">
+                <h2>Actual Data vs Predictions</h2>
+                <canvas id="data-chart"></canvas>
+            </section>
+
+            <section class="chart-container">
+                <h2>Predictions Over Time</h2>
+                <canvas id="seir-chart"></canvas>
+            </section>
+
+            <section class="chart-container">
+                <h2>Cumulative Infected</h2>
+                <canvas id="cumulative-chart"></canvas>
+            </section>
+        </main>
+
+        <footer>
+            <p>SEIR Model Dashboard | Standalone Version</p>
+        </footer>
+    </div>
+
+    <script>
+        let seirChart = null;
+        let cumulativeChart = null;
+        let dataChart = null;
+        let actualData = [];
+
+        // SEIR Model Implementation in JavaScript
+        class SEIRModel {
+            constructor(population = 1380000000) {
+                this.population = population;
+                this.sigma = 1/5;  // incubation ~5 days
+                this.beta = 0.4;
+                this.gamma = 0.1;
+            }
+
+            // Fit model to data using gradient descent
+            fitToData(infectedData) {
+                if (infectedData.length < 10) {
+                    console.warn('Not enough data for fitting, using defaults');
+                    return;
+                }
+
+                let bestBeta = 0.4;
+                let bestGamma = 0.1;
+                let bestError = Infinity;
+
+                // Grid search for best parameters
+                for (let beta = 0.1; beta <= 1.0; beta += 0.05) {
+                    for (let gamma = 0.05; gamma <= 0.3; gamma += 0.02) {
+                        const pred = this._predictWithParams(beta, gamma, infectedData.length, 100, 50, 0);
+                        const error = this._calculateError(pred.cumulative_infected, infectedData);
+                        
+                        if (error < bestError) {
+                            bestError = error;
+                            bestBeta = beta;
+                            bestGamma = gamma;
+                        }
+                    }
+                }
+
+                this.beta = bestBeta;
+                this.gamma = bestGamma;
+                console.log(`Fitted: β=${bestBeta.toFixed(3)}, γ=${bestGamma.toFixed(3)}`);
+            }
+
+            _calculateError(predicted, actual) {
+                let error = 0;
+                const minLen = Math.min(predicted.length, actual.length);
+                for (let i = 0; i < minLen; i++) {
+                    const diff = predicted[i] - actual[i];
+                    error += diff * diff;
+                }
+                return Math.sqrt(error / minLen);
+            }
+
+            _predictWithParams(beta, gamma, days, E0, I0, R0) {
+                const S = [], E = [], I = [], R = [];
+                let s = this.population - E0 - I0 - R0;
+                let e = E0;
+                let i = I0;
+                let r = R0;
+                
+                const dt = 1;
+                const N = this.population;
+                const sigma = this.sigma;
+
+                S.push(s);
+                E.push(e);
+                I.push(i);
+                R.push(r);
+
+                for (let t = 1; t < days; t++) {
+                    const dSdt = -beta * s * i / N;
+                    const dEdt = beta * s * i / N - sigma * e;
+                    const dIdt = sigma * e - gamma * i;
+                    const dRdt = gamma * i;
+
+                    s += dSdt * dt;
+                    e += dEdt * dt;
+                    i += dIdt * dt;
+                    r += dRdt * dt;
+
+                    S.push(Math.max(0, s));
+                    E.push(Math.max(0, e));
+                    I.push(Math.max(0, i));
+                    R.push(Math.max(0, r));
+                }
+
+                return {
+                    susceptible: S,
+                    exposed: E,
+                    infected: I,
+                    recovered: R,
+                    cumulative_infected: I.map((val, idx) => val + R[idx])
+                };
+            }
+
+            // Simple RK4 integration for SEIR equations
+            predict(days, E0, I0, R0) {
+                return this._predictWithParams(this.beta, this.gamma, days, E0, I0, R0);
+            }
+        }
+
+        const model = new SEIRModel();
+
+        // CSV Parser
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const values = lines[i].split(',').map(v => v.trim());
+                const row = {};
+                headers.forEach((header, idx) => {
+                    row[header] = isNaN(values[idx]) ? values[idx] : parseFloat(values[idx]);
+                });
+                data.push(row);
+            }
+            return { headers, data };
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loadDefaultBtn').addEventListener('click', loadDefaultData);
+            document.getElementById('predictBtn').addEventListener('click', generatePredictions);
+            generatePredictions(); // Generate initial predictions
+            // Also attempt to load default dataset on startup (silent)
+            loadDefaultData();
+        });
+        
+        // Default dataset URL (kept hidden from UI). Uses provided dataset file in workspace.
+        const datasetUrl = 'datasets/covid_19_india.csv';
+
+        // Fetch and load default dataset silently. Does not expose the URL to the user interface.
+        async function loadDefaultData() {
+            const columnName = document.getElementById('columnName').value;
+            const statusDiv = document.getElementById('dataStatus');
+            try {
+                const resp = await fetch(datasetUrl);
+                if (!resp.ok) throw new Error('Failed to fetch default dataset');
+                const csvText = await resp.text();
+                const { headers, data } = parseCSV(csvText);
+
+                if (!headers.includes(columnName)) {
+                    // If requested column not found, do not reveal dataset path; show available headers only
+                    statusDiv.textContent = `❌ Column "${columnName}" not found. Available: ${headers.join(', ')}`;
+                    statusDiv.style.color = '#e74c3c';
+                    return;
+                }
+
+                actualData = data.map(row => row[columnName]).filter(v => !isNaN(v));
+                model.fitToData(actualData);
+
+                statusDiv.textContent = `✅ Default data loaded: ${actualData.length} records. Model fitted with β=${model.beta.toFixed(3)}, γ=${model.gamma.toFixed(3)}`;
+                statusDiv.style.color = '#27ae60';
+
+                generatePredictions();
+            } catch (err) {
+                // Keep message generic so dataset location is not exposed
+                statusDiv.textContent = '⚠️ Unable to load default dataset. You can still use manual input.';
+                statusDiv.style.color = '#e67e22';
+                console.error(err);
+            }
+        }
+
+        function generatePredictions() {
+            const e0 = parseInt(document.getElementById('e0').value);
+            const i0 = parseInt(document.getElementById('i0').value);
+            const r0 = parseInt(document.getElementById('r0').value);
+            const days = parseInt(document.getElementById('days').value);
+
+            try {
+                const predictions = model.predict(days, e0, i0, r0);
+                updateCharts(predictions);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error generating predictions. Please try again.');
+            }
+        }
+
+        function updateCharts(predictions) {
+            const days = Array.from({ length: predictions.susceptible.length }, (_, i) => i);
+
+            // Data Chart (if actual data exists)
+            if (actualData.length > 0) {
+                if (dataChart) dataChart.destroy();
+                const ctx0 = document.getElementById('data-chart').getContext('2d');
+                dataChart = new Chart(ctx0, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({ length: actualData.length }, (_, i) => i),
+                        datasets: [
+                            {
+                                label: 'Actual Data',
+                                data: actualData,
+                                borderColor: '#34495e',
+                                backgroundColor: 'rgba(52, 73, 94, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Model Fit',
+                                data: predictions.cumulative_infected.slice(0, actualData.length),
+                                borderColor: '#e74c3c',
+                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                borderDash: [5, 5]
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Days' } } }
+                    }
+                });
+            }
+
+            // SEIR Chart
+            if (seirChart) seirChart.destroy();
+            const ctx1 = document.getElementById('seir-chart').getContext('2d');
+            seirChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [
+                        {
+                            label: 'Susceptible',
+                            data: predictions.susceptible.map(v => Math.round(v)),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Exposed',
+                            data: predictions.exposed.map(v => Math.round(v)),
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Infected',
+                            data: predictions.infected.map(v => Math.round(v)),
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Recovered',
+                            data: predictions.recovered.map(v => Math.round(v)),
+                            borderColor: '#27ae60',
+                            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Days' } } }
+                }
+            });
+
+            // Cumulative Chart
+            if (cumulativeChart) cumulativeChart.destroy();
+            const ctx2 = document.getElementById('cumulative-chart').getContext('2d');
+            cumulativeChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [
+                        {
+                            label: 'Cumulative Infected',
+                            data: predictions.cumulative_infected.map(v => Math.round(v)),
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Days' } } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
