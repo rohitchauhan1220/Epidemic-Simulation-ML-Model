@@ -3,6 +3,7 @@
 A simple, direct SEIR model for COVID-19 epidemic simulation without backend server complexity.
 
 #Deployment Link
+https://epidemic-simulation-ml-model-2da1otjb3.vercel.app/
 
 
 
@@ -104,6 +105,7 @@ Interactive charts and dashboards
 Parameter optimization using machine learning
 Support for other diseases
 Regional comparison visualizations
+
 
 
 
